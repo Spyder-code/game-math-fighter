@@ -1,4 +1,5 @@
 import { Scene } from "phaser"
+import ScoreLabel from "./ui/ScoreLabel"
 
 export default class MathFighterScene extends Scene {
     constructor() {
@@ -32,6 +33,10 @@ export default class MathFighterScene extends Scene {
       this.correctAnswer = undefined
       this.playerAtatck = false
       this.enemyAttack = false
+      this.scoreLabel = 0
+      this.timerLabel = undefined
+      this.countdownTimer = 5
+      this.timeEvent = undefined
     }
 
     preload() {
@@ -49,8 +54,8 @@ export default class MathFighterScene extends Scene {
         this.add.image(240,320,'background')
         const fight_bg = this.add.image(240,160,'fight-bg')
         const tile = this.physics.add.staticImage(240, fight_bg.height - 40, 'tile')
-        this.player = this.physics.add.sprite(this.gameHalfWidth - 150, this.gameHalfHeight -200, 'player').setBounce(.2).setOffset(-50,-10)
-        this.enemy = this.physics.add.sprite(this.gameHalfWidth + 150, this.gameHalfHeight -200, 'enemy').setBounce(.2).setOffset(-50,-8).setFlipX(true)
+        this.player = this.physics.add.sprite(this.gameHalfWidth - 150, this.gameHalfHeight -200, 'player').setBounce(.2).setOffset(-50,-10).setSize(30,50)
+        this.enemy = this.physics.add.sprite(this.gameHalfWidth + 150, this.gameHalfHeight -200, 'enemy').setBounce(.2).setOffset(-50,-8).setFlipX(true).setSize(30,50)
         this.physics.add.collider(this.player,tile)
         this.physics.add.collider(this.enemy,tile)
 
@@ -73,7 +78,10 @@ export default class MathFighterScene extends Scene {
 
         this.physics.add.overlap(this.slash, this.player, this.spriteHit,undefined,this)
         this.physics.add.overlap(this.slash, this.enemy,this.spriteHit,undefined,this)
-    }
+        
+        this.scoreLabel = this.createScoreLabel(26,16,0)
+        this.timerLabel = this.add.text(this.gameHalfWidth,16,null).setDepth(5)
+      }
 
     update(time) {
       if(this.correctAnswer == true && !this.playerAtatck){
@@ -95,6 +103,15 @@ export default class MathFighterScene extends Scene {
           this.createSlash(this.enemy.x - 160, this.enemy.y, 2, -600, true)
         })
         this.enemyAttack = true
+      }
+
+      if(this.startGame){
+        this.timerLabel.setStyle({
+          fontSize:'24px',
+          fill:'#000',
+          fontStyle:'bold',
+          align:'center'
+        }).setText(`${this.countdownTimer}`)
       }
     }
 
@@ -154,6 +171,13 @@ export default class MathFighterScene extends Scene {
       this.createButton()
       this.input.on('gameobjectdown',this.addNumber, this)
       this.generateQuestion()
+      
+      this.timeEvent = this.time.addEvent({
+        delay: 1000,
+        callback: this.gameOver,
+        callbackScope:this,
+        loop:true
+      })
     }
 
     createButton(){
@@ -236,13 +260,13 @@ export default class MathFighterScene extends Scene {
         this.question[1] = numberA / numberB
       }
       if(operator === '-'){
-        if(numberB > numberA){
-          this.question[0] = `${numberB} - ${numberA}`
-          this.question[1] = numberB - numberA
-        }else{
-          this.question[0] = `${numberA} - ${numberB}`
-          this.question[1] = numberA - numberB
-        }
+        // if(numberB > numberA){
+        //   this.question[0] = `${numberB} - ${numberA}`
+        //   this.question[1] = numberB - numberA
+        // }else{
+        // }
+        this.question[0] = `${numberA} - ${numberB}`
+        this.question[1] = numberA - numberB
       }
 
       this.questionText.setText(this.question[0])
@@ -275,8 +299,12 @@ export default class MathFighterScene extends Scene {
       slash.setVisible(false)
       if(sprite.texture.key == 'player'){
         sprite.anims.play('player-hit',true)
+        if(this.scoreLabel.getScore() > 0){
+          this.scoreLabel.add(-50)
+        }
       }else{
         sprite.anims.play('enemy-hit',true)
+        this.scoreLabel.add(50)
       }
 
       this.time.delayedCall(500, ()=>{
@@ -285,5 +313,26 @@ export default class MathFighterScene extends Scene {
         this.correctAnswer = undefined
         this.generateQuestion()
       })
+    }
+
+    createScoreLabel(x,y,score){
+      const style = {
+        fontSize: '24px',
+        fill: '#000',
+        fontStyle:'bold'
+      }
+
+      const label = new ScoreLabel(this,x,y,score,style).setDepth(1)
+      this.add.existing(label)
+      return label
+    }
+
+    gameOver(){
+      this.countdownTimer--
+      if(this.countdownTimer < 0){
+        this.scene.start('game-over-scene',{
+          score:this.scoreLabel.getScore()
+        })
+      }
     }
 }
